@@ -117,9 +117,9 @@ def create_stripe_token(cc, mm, yy, cvc):
             if error_code == 'expired_card':
                 return None, {"error_code": "expired_card", "message": "Your card has expired"}
             elif error_code == 'invalid_expiry_year':
-                return None, {"error_code": "invalid_expiry_year", "message": "Invalid expiration year"}
+                return None, {"error_code": "invalid_expiry_year", "message": "Your card's year is invalid"}
             elif error_code == 'invalid_expiry_month':
-                return None, {"error_code": "invalid_expiry_month", "message": "Invalid expiration month"}
+                return None, {"error_code": "invalid_month", "message": "Your card's month is invalid"}
             else:
                 return None, {"error_code": error_code, "message": error_msg}
         
@@ -188,21 +188,33 @@ def stripe_gate(card):
                                        "message":"Use: cc|mm|yy|cvc"}}), 400
         cc, mm, yy, cvc = parts
 
-        # ---- ONLY MM / YY / CVC FORMAT ----
-        if not mm.isdigit() or not (1 <= int(mm) <= 12):
-            return jsonify({"error_code":"invalid_mm",
-                           "response":{"code":"invalid_mm","message":"Invalid month"}}), 400
+        # ---- MONTH VALIDATION ----
+        if not mm.isdigit():
+            return jsonify({"error_code":"invalid_month",
+                           "response":{"code":"invalid_month",
+                                       "message":"Your card's month is invalid"}}), 400
+        if not (1 <= int(mm) <= 12):
+            return jsonify({"error_code":"invalid_month",
+                           "response":{"code":"invalid_month",
+                                       "message":"Your card's month is invalid"}}), 400
+
+        # ---- YEAR VALIDATION ----
         if not yy.isdigit() or len(yy) not in (2,4):
             return jsonify({"error_code":"invalid_yy",
-                           "response":{"code":"invalid_yy","message":"Invalid year"}}), 400
-        if not cvc.isdigit():
-            return jsonify({"error_code":"invalid_cvc",
-                           "response":{"code":"invalid_cvc","message":"CVC must be digits"}}), 400
+                           "response":{"code":"invalid_yy",
+                                       "message":"Your card's year is invalid"}}), 400
 
         # ---- CHECK IF CARD IS EXPIRED ----
         if is_card_expired(mm, yy):
             return jsonify({"error_code":"expired_card",
-                           "response":{"code":"expired_card","message":"Your card has expired"}}), 400
+                           "response":{"code":"expired_card",
+                                       "message":"Your card has expired"}}), 400
+
+        # ---- CVC VALIDATION ----
+        if not cvc.isdigit():
+            return jsonify({"error_code":"invalid_cvc",
+                           "response":{"code":"invalid_cvc",
+                                       "message":"CVC must be digits"}}), 400
 
         # ---- AMEX CVC RULE ----
         is_amex = cc.startswith('3')
